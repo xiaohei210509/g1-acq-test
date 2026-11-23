@@ -1,4 +1,4 @@
-/* g1-switch — 候选开关 + 本机页。cand=N 可挂在任意 one.google.com 地址上。 */
+/* g1-switch v2 — 候选开关与本机页。cand=N 可挂在任意 one.google.com 地址上。 */
 "use strict";
 
 (function () {
@@ -35,8 +35,7 @@
     }
   }
 
-  var isPage = /^https:\/\/one\.google\.com\/g1-test\/?(?:\?|$)/.test(url);
-  if (!isPage) {
+  if (!/^https:\/\/one\.google\.com\/g1-test\/?(?:\?|$)/.test(url)) {
     $done({});
     return;
   }
@@ -48,12 +47,16 @@
   } catch (error) {
     log = {};
   }
+  var headers = { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" };
 
   if (/[?&]format=json/.test(url)) {
+    headers["Content-Type"] = "application/json; charset=utf-8";
     $done({
-      status: 200,
-      headers: { "Content-Type": "application/json; charset=utf-8" },
-      body: JSON.stringify({ current: current, target: CANDIDATES[current], candidates: CANDIDATES, last: log }, null, 2)
+      response: {
+        status: 200,
+        headers: headers,
+        body: JSON.stringify({ current: current, target: CANDIDATES[current], candidates: CANDIDATES, last: log }, null, 2)
+      }
     });
     return;
   }
@@ -66,21 +69,22 @@
     return "<tr><td>" + i + "</td><td><code>" + esc(id) + "</code></td><td>" + mark + "</td></tr>";
   }).join("");
   var lastHtml = log && log.target
-    ? "<p>上次改写：" + esc(log.at) + "<br>候选 #" + esc(log.index) + " → <code>" + esc(log.target) +
-      "</code><br>命中 " + esc(log.hits) + " 处：" + esc(JSON.stringify(log.counts)) + "</p>"
+    ? "<p>上次改写 " + esc(log.at) + "：候选 #" + esc(log.index) + " → <code>" + esc(log.target) +
+      "</code><br>命中 " + esc(log.hits) + " 处 " + esc(JSON.stringify(log.counts)) + "</p>"
     : "<p>还没有捕获到可改写的响应。</p>";
 
   $done({
-    status: 200,
-    headers: { "Content-Type": "text/html; charset=utf-8" },
-    body: "<!doctype html><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'>" +
-      "<title>G1 ACQ TEST</title><style>body{font:15px -apple-system;margin:16px}" +
-      "td{padding:4px 6px;border-bottom:1px solid #eee;vertical-align:top}code{font-size:12px}</style>" +
-      "<h3>G1 ACQ TEST</h3><p>当前候选 #" + current + "：<code>" + esc(CANDIDATES[current]) + "</code></p>" +
-      lastHtml +
-      "<p>选好候选后回到 Google App 重新进入 AI Pro 卡，看收银台的名称/周期/金额。一次只测一个候选。</p>" +
-      "<table>" + rows + "</table>" +
-      "<p><a href=\"/g1-test?format=json\">JSON</a></p>"
+    response: {
+      status: 200,
+      headers: headers,
+      body: "<!doctype html><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'>" +
+        "<title>G1 ACQ TEST</title><style>body{font:15px -apple-system;margin:16px;color:#1c2737}" +
+        "td{padding:5px 6px;border-bottom:1px solid #eee;vertical-align:top}code{font-size:12px;overflow-wrap:anywhere}" +
+        "a{color:#1259be}</style><h3>G1 ACQ TEST</h3>" +
+        "<p>当前候选 #" + current + "：<code>" + esc(CANDIDATES[current]) + "</code></p>" + lastHtml +
+        "<p>选好后回 Google App 重新进入 AI Pro 卡，核对收银台名称/周期/金额。一次只测一个候选。</p><table>" +
+        rows + "</table><p><a href=\"/g1-sku-report\">→ 原版报告</a> · <a href=\"/g1-test?format=json\">JSON</a></p>"
+    }
   });
 
   function readInt(key, fallback) {

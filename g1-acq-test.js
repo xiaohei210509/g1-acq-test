@@ -1,16 +1,17 @@
 /*
- * g1-acq-test — 逐档验证「AI Pro / 2TB 卡片到底能被改成哪个真实 App Store 商品 ID」。
- * 与 g1-acq v7.5 同构：只对 one.google.com/ai? 的响应做文本替换，不查询商店。
- * 候选开关：Safari 打开 https://one.google.com/g1-test?cand=N（N 为下表下标）。
+ * g1-acq-test v2 — 逐档验证「AI Pro 卡片能被改成哪个真实 App Store 商品 ID」。
+ * 只对 one.google.com/ai? 的响应做文本替换，不查询商店。
+ * 顺带把本次命中写成原报告脚本认识的记录，可在 /g1-sku-report 里看到。
  */
 "use strict";
 
 (function () {
-  var VERSION = "g1-acq-test-v1";
+  var VERSION = "g1-acq-test-v2";
   var CAND_KEY = "g1.candidate.v1";
   var LOG_KEY = "g1.candidate.hits.v1";
+  var TEST_KEY = "g1.pro.annual.test.v1";
 
-  // 0/1 是本次实机采集到、确定存在的对照组；2 起是待验证的 90p 猜测。
+  // 0/1 是实机采集到、确定存在的对照组；2 起是待验证的 90p 猜测。
   var CANDIDATES = [
     "g1.ios.ai.2tb.m.ip_3mo_75p.acq",
     "g1.ios.ai.2tb.a.ip_1yr_25p.acq",
@@ -33,7 +34,7 @@
 
   var url = typeof $request === "object" && $request ? $request.url : "";
   if (typeof url !== "string" || !/^https:\/\/one\.google\.com\//.test(url) ||
-      /^https:\/\/one\.google\.com\/g1-test\/?(?:\?|$)/.test(url)) {
+      /^https:\/\/one\.google\.com\/(?:g1-test|g1-sku-report)\/?(?:\?|$)/.test(url)) {
     $done({});
     return;
   }
@@ -50,6 +51,7 @@
 
   var index = readIndex();
   var target = CANDIDATES[index];
+  var now = new Date().toISOString();
   // 先还原转义点号：v7.5 只对明文 g1. 生效，\u002e / \x2e 正文只采集、不改写。
   var out = body.replace(/\\u002e|\\x2e/g, ".");
   var counts = {};
@@ -64,31 +66,41 @@
   });
 
   if (hits) {
-    try {
-      $persistentStore.write(JSON.stringify({
-        at: new Date().toISOString(),
-        index: index,
-        target: target,
-        hits: hits,
-        counts: counts
-      }), LOG_KEY);
-    } catch (error) {
-      // 日志失败不影响改写
-    }
+    write(LOG_KEY, JSON.stringify({ at: now, index: index, target: target, hits: hits, counts: counts }));
+    write(TEST_KEY, JSON.stringify({
+      schemaVersion: 1,
+      version: VERSION,
+      updatedAt: now,
+      sourcePrefix: "g1.ios.2tb.",
+      target: target,
+      targetOrigin: "user-specified",
+      hitCount: hits,
+      annualHitCount: hits,
+      matchedFrom: Object.keys(counts).map(function (source) {
+        return { id: source, to: target, count: counts[source], fallback: false };
+      }),
+      status: "rewritten"
+    }));
   }
 
-  console.log("[g1-acq-test] " + VERSION + " cand#" + index + " " + target +
-    " hits=" + hits + " path=" + (url.indexOf("/ai?") > -1 ? "/ai" : url));
+  console.log("[g1-acq-test] " + VERSION + " cand#" + index + " " + target + " hits=" + hits);
   $done(hits ? { body: out } : {});
 
   function readIndex() {
     try {
-      var raw = $persistentStore.read(CAND_KEY);
-      var n = parseInt(raw, 10);
+      var n = parseInt($persistentStore.read(CAND_KEY), 10);
       if (isFinite(n) && n >= 0 && n < CANDIDATES.length) return n;
     } catch (error) {
       // 默认 0
     }
     return 0;
+  }
+
+  function write(key, value) {
+    try {
+      $persistentStore.write(value, key);
+    } catch (error) {
+      // 存储失败不影响改写
+    }
   }
 })();
