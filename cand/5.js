@@ -6,28 +6,31 @@
 "use strict";
 
 (function () {
-  var VERSION = "g1-acq-test-v4";
+  var VERSION = "g1-acq-test-v5";
   var CAND_KEY = "g1.candidate.v1";
   var LOG_KEY = "g1.candidate.hits.v1";
   var TEST_KEY = "g1.pro.annual.test.v1";
   var RAW_KEY = "g1.last.body.v1";
+  var OVER_KEY = "g1.override.v1";
+  var FOUND_KEY = "g1.found.v1";
 
-  // 0/1 = 实机采集到的 5TB 原生对照；2 起为「5TB 档 90p/12 个月」的各种真实命名猜测。
+  // ✅ = 实测能拉起收银台。p 是「打掉百分之几」，前缀 ip_ 后接期数。
   var CANDIDATES = [
-    "g1.ios.ai.2tb.m.ip_3mo_75p.acq",
-    "g1.ios.ai.2tb.a.ip_1yr_25p.acq",
-    "g1.ios.ai.2tb.a.ip_1yr_90p.acq",
-    "g1.ios.ai.2tb.m.ip_12mo_90p.acq",
-    "g1.ios.ai.2tb.m.ip_1yr_90p.acq",
-    "g1.ios.ai.2tb.m.12months_ip_90p.acq",
-    "g1.ios.ai.2tb.m.ip_12mo_10p.acq",
-    "g1.ios.ai.2tb.m.ip_12mo_75p.acq",
     "g1.ios.ai.2tb.m.ip_3mo_90p.acq",
+    "g1.ios.ai.2tb.a.ip_1yr_25p.acq",
+    "g1.ios.ai.2tb.m.ip_6mo_90p.acq",
+    "g1.ios.ai.2tb.m.ip_9mo_90p.acq",
+    "g1.ios.ai.2tb.m.ip_12mo_90p.acq",
+    "g1.ios.ai.2tb.m.12mo_90p.acq",
+    "g1.ios.ai.2tb.m.ip_12m_90p.acq",
+    "g1.ios.ai.2tb.a.ip_1yr_90p.acq",
+    "g1.ios.ai.2tb.m.ip_12mo_10p.acq",
+    "g1.ios.ai.2tb.m.ip_6mo_75p.acq",
+    "g1.ios.ai.2tb.m.ip_3mo_75p.acq",
     "g1.ios.2tb.m.12months_ip_90p",
     "g1.2tb.ai.12months_ip_90p"
   ];
-  // 1 = 5TB(AI Pro) 档，0 = 存储 2TB 档。标题会跟着变，选的时候看这一列。
-  var LABELS = ["5TB", "5TB", "5TB", "5TB", "5TB", "5TB", "5TB", "5TB", "5TB", "存储", "存储"];
+  var LABELS = ["90p 3mo", "25p 1yr", "6mo", "9mo", "12mo", "12mo", "12m", "1yr", "10p", "6mo75", "原生", "存储", "存储"];
 
   // 只改这四个采集到的完整源 ID：AI Pro 卡（月/年）与旧式 2TB 存储卡（月/年）。
   var SOURCES = [
@@ -55,12 +58,14 @@
   }
 
   var index = 5; // 固定候选
-  var target = CANDIDATES[index];
+  var override = readKey(OVER_KEY);
+  var target = /^g1\.[A-Za-z0-9._-]{3,80}$/.test(override) ? override : CANDIDATES[index];
   var now = new Date().toISOString();
   // 先还原转义点号：v7.5 只对明文 g1. 生效，\u002e / \x2e 正文只采集、不改写。
-  var out = body.replace(/\\u002e|\\x2e/g, ".");
+  var orig = body.replace(/\\u002e|\\x2e/g, ".");
+  var out = orig;
   // 这条响应里究竟有没有 AI Pro 卡自己的编号：没有就说明我们改的不是购买链路。
-  var sawAi = (out.match(/g1\.ios\.ai\.2tb\./g) || []).length;
+  var sawAi = (orig.match(/g1\.ios\.ai\.2tb\./g) || []).length;
   var counts = {};
   var hits = 0;
   SOURCES.forEach(function (source) {
@@ -72,9 +77,14 @@
     hits += n;
   });
 
+  var found = {};
+  (orig.match(/g1\.[A-Za-z0-9._-]{3,70}/g) || []).forEach(function (id) {
+    found[id] = (found[id] || 0) + 1;
+  });
   if (hits || sawAi) {
-    write(RAW_KEY, out.slice(0, 250000));
-    write(LOG_KEY, JSON.stringify({ at: now, index: index, target: target, hits: hits, sawAi: sawAi, bytes: out.length, counts: counts }));
+    write(RAW_KEY, out.slice(0, 400000));
+    write(FOUND_KEY, JSON.stringify(Object.keys(found).sort().slice(0, 120)));
+    write(LOG_KEY, JSON.stringify({ at: now, index: index, target: target, override: override, hits: hits, sawAi: sawAi, bytes: out.length, counts: counts }));
     write(TEST_KEY, JSON.stringify({
       schemaVersion: 1,
       version: VERSION,
@@ -102,6 +112,14 @@
       // 默认 0
     }
     return 0;
+  }
+
+  function readKey(key) {
+    try {
+      return $persistentStore.read(key) || "";
+    } catch (error) {
+      return "";
+    }
   }
 
   function write(key, value) {
