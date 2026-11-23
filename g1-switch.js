@@ -49,6 +49,26 @@
   }
   var headers = { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" };
 
+  if (/[?&]raw=1/.test(url)) {
+    var raw = "";
+    try {
+      raw = $persistentStore.read("g1.last.body.v1") || "";
+    } catch (error) {
+      raw = "";
+    }
+    headers["Content-Type"] = "text/plain; charset=utf-8";
+    $done({ response: { status: 200, headers: headers, body: raw || "(暂无抓取)" } });
+    return;
+  }
+  if (/[?&]clear=1/.test(url)) {
+    try {
+      $persistentStore.write("{}", LOG_KEY);
+      $persistentStore.write("", "g1.last.body.v1");
+    } catch (error) {
+      // 忽略
+    }
+  }
+
   if (/[?&]format=json/.test(url)) {
     headers["Content-Type"] = "application/json; charset=utf-8";
     $done({
@@ -70,7 +90,8 @@
   }).join("");
   var lastHtml = log && log.target
     ? "<p>上次改写 " + esc(log.at) + "：候选 #" + esc(log.index) + " → <code>" + esc(log.target) +
-      "</code><br>命中 " + esc(log.hits) + " 处 " + esc(JSON.stringify(log.counts)) + "</p>"
+      "</code><br>命中 " + esc(log.hits) + " 处，AI 编号出现 " + esc(log.sawAi || 0) + " 次 " +
+      esc(JSON.stringify(log.counts)) + "</p>"
     : "<p>还没有捕获到可改写的响应。</p>";
 
   $done({
@@ -83,7 +104,7 @@
         "a{color:#1259be}</style><h3>G1 ACQ TEST</h3>" +
         "<p>当前候选 #" + current + "：<code>" + esc(CANDIDATES[current]) + "</code></p>" + lastHtml +
         "<p>选好后回 Google App 重新进入 AI Pro 卡，核对收银台名称/周期/金额。一次只测一个候选。</p><table>" +
-        rows + "</table><p><a href=\"/g1-sku-report\">→ 原版报告</a> · <a href=\"/g1-test?format=json\">JSON</a></p>"
+        rows + "</table><p><a href=\"/g1-sku-report\">→ 原版报告</a> · <a href=\"/g1-test?format=json\">JSON</a> · <a href=\"/g1-test?raw=1\">原始响应</a> · <a href=\"/g1-test?clear=1\">清空</a></p>"
     }
   });
 

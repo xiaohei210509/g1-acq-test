@@ -6,10 +6,11 @@
 "use strict";
 
 (function () {
-  var VERSION = "g1-acq-test-v2";
+  var VERSION = "g1-acq-test-v3";
   var CAND_KEY = "g1.candidate.v1";
   var LOG_KEY = "g1.candidate.hits.v1";
   var TEST_KEY = "g1.pro.annual.test.v1";
+  var RAW_KEY = "g1.last.body.v1";
 
   // 0/1 是实机采集到、确定存在的对照组；2 起是待验证的 90p 猜测。
   var CANDIDATES = [
@@ -54,6 +55,8 @@
   var now = new Date().toISOString();
   // 先还原转义点号：v7.5 只对明文 g1. 生效，\u002e / \x2e 正文只采集、不改写。
   var out = body.replace(/\\u002e|\\x2e/g, ".");
+  // 这条响应里究竟有没有 AI Pro 卡自己的编号：没有就说明我们改的不是购买链路。
+  var sawAi = (out.match(/g1\.ios\.ai\.2tb\./g) || []).length;
   var counts = {};
   var hits = 0;
   SOURCES.forEach(function (source) {
@@ -65,8 +68,9 @@
     hits += n;
   });
 
-  if (hits) {
-    write(LOG_KEY, JSON.stringify({ at: now, index: index, target: target, hits: hits, counts: counts }));
+  if (hits || sawAi) {
+    write(RAW_KEY, out.slice(0, 250000));
+    write(LOG_KEY, JSON.stringify({ at: now, index: index, target: target, hits: hits, sawAi: sawAi, bytes: out.length, counts: counts }));
     write(TEST_KEY, JSON.stringify({
       schemaVersion: 1,
       version: VERSION,
@@ -83,7 +87,7 @@
     }));
   }
 
-  console.log("[g1-acq-test] " + VERSION + " cand#" + index + " " + target + " hits=" + hits);
+  console.log("[g1-acq-test] " + VERSION + " cand#" + index + " " + target + " hits=" + hits + " sawAi=" + sawAi);
   $done(hits ? { body: out } : {});
 
   function readIndex() {
