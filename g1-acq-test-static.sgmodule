@@ -1,0 +1,13 @@
+#!name=G1 ACQ TEST FIXED
+#!desc=固定候选版：编辑 script-path 里的 cand/N.js 切换档位；先停用 G1 ACQ
+#!system=ios
+
+[Rule]
+# 压掉 UDP 443，让 one.google.com 走 TCP，否则 http-response 看不到正文
+AND,((PROTOCOL,UDP),(DEST-PORT,443)),REJECT-NO-DROP
+
+[Script]
+g1-acq-test = type=http-response,pattern=^https:\/\/one\.google\.com\/,requires-body=1,max-size=0,script-path=https://cdn.jsdelivr.net/gh/xiaohei210509/g1-acq-test@main/cand/2.js
+
+[MITM]
+hostname = %APPEND% one.google.com
