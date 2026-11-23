@@ -1,0 +1,14 @@
+#!name=G1 ACQ TEST
+#!desc=逐档验证 AI Pro 卡片可指向的真实商品 ID；先停用 G1 ACQ 再启用本模块，一次只测一个候选
+#!system=ios
+
+[Rule]
+# 压掉 UDP 443，让 one.google.com 走 TCP，否则 http-response 看不到正文
+AND,((PROTOCOL,UDP),(DEST-PORT,443)),REJECT-NO-DROP
+
+[Script]
+g1-acq-test = type=http-response,pattern=^https:\/\/one\.google\.com\/,requires-body=1,max-size=0,script-path=https://gist.githubusercontent.com/xiaohei210509/d8cc7062940d4af5cb1f556607a2eb01/raw/g1-acq-test.js
+g1-test-page = type=http-request,pattern=^https:\/\/one\.google\.com\/g1-test\/?(?:\?.*)?$,script-path=https://gist.githubusercontent.com/xiaohei210509/d8cc7062940d4af5cb1f556607a2eb01/raw/g1-test-page.js
+
+[MITM]
+hostname = %APPEND% one.google.com
