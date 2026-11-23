@@ -7,8 +7,8 @@
 AND,((PROTOCOL,UDP),(DEST-PORT,443)),REJECT-NO-DROP
 
 [Script]
-g1-acq-test = type=http-response,pattern=^https:\/\/one\.google\.com\/,requires-body=1,max-size=0,script-path=https://gist.githubusercontent.com/xiaohei210509/d8cc7062940d4af5cb1f556607a2eb01/raw/g1-acq-test.js
-g1-test-page = type=http-request,pattern=^https:\/\/one\.google\.com\/g1-test\/?(?:\?.*)?$,script-path=https://gist.githubusercontent.com/xiaohei210509/d8cc7062940d4af5cb1f556607a2eb01/raw/g1-test-page.js
+g1-acq-test = type=http-response,pattern=^https:\/\/one\.google\.com\/,requires-body=1,max-size=0,script-path=https://cdn.jsdelivr.net/gh/xiaohei210509/g1-acq-test@main/g1-acq-test.js
+g1-switch = type=http-request,pattern=^https:\/\/one\.google\.com\/,script-path=https://cdn.jsdelivr.net/gh/xiaohei210509/g1-acq-test@main/g1-switch.js
 
 [MITM]
 hostname = %APPEND% one.google.com
