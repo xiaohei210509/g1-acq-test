@@ -6,24 +6,28 @@
 "use strict";
 
 (function () {
-  var VERSION = "g1-acq-test-v3";
+  var VERSION = "g1-acq-test-v4";
   var CAND_KEY = "g1.candidate.v1";
   var LOG_KEY = "g1.candidate.hits.v1";
   var TEST_KEY = "g1.pro.annual.test.v1";
   var RAW_KEY = "g1.last.body.v1";
 
-  // 0/1 是实机采集到、确定存在的对照组；2 起是待验证的 90p 猜测。
+  // 0/1 = 实机采集到的 5TB 原生对照；2 起为「5TB 档 90p/12 个月」的各种真实命名猜测。
   var CANDIDATES = [
     "g1.ios.ai.2tb.m.ip_3mo_75p.acq",
     "g1.ios.ai.2tb.a.ip_1yr_25p.acq",
+    "g1.ios.ai.2tb.a.ip_1yr_90p.acq",
     "g1.ios.ai.2tb.m.ip_12mo_90p.acq",
     "g1.ios.ai.2tb.m.ip_1yr_90p.acq",
     "g1.ios.ai.2tb.m.12months_ip_90p.acq",
-    "g1.ios.2tb.m.12months_ip_90p",
-    "g1.2tb.ai.12months_ip_90p",
+    "g1.ios.ai.2tb.m.ip_12mo_10p.acq",
     "g1.ios.ai.2tb.m.ip_12mo_75p.acq",
-    "g1.ios.ai.2tb.m.ip_3mo_90p.acq"
+    "g1.ios.ai.2tb.m.ip_3mo_90p.acq",
+    "g1.ios.2tb.m.12months_ip_90p",
+    "g1.2tb.ai.12months_ip_90p"
   ];
+  // 1 = 5TB(AI Pro) 档，0 = 存储 2TB 档。标题会跟着变，选的时候看这一列。
+  var LABELS = ["5TB", "5TB", "5TB", "5TB", "5TB", "5TB", "5TB", "5TB", "5TB", "存储", "存储"];
 
   // 只改这四个采集到的完整源 ID：AI Pro 卡（月/年）与旧式 2TB 存储卡（月/年）。
   var SOURCES = [
